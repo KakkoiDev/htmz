@@ -2,9 +2,9 @@
   <script>
     function htmz(frame) {
       // ---------------------------------8<-----------------------------------
-      // URL History
+      // URL Rewrite
       // ----------------------------------------------------------------------
-      // This extension updates the browser URL via pushState when htmz swaps
+      // This extension rewrites the browser URL via pushState when htmz swaps
       // content, and handles back/forward navigation via popstate.
       // It removes and re-adds the iframe after each swap (like no-history)
       // so that only pushState entries appear in the browser history.
@@ -54,12 +54,12 @@
 </div>
 
 <div id="extension-description">
-  <h2>url-history</h2>
+  <h2>url-rewrite</h2>
   <p>
-    This extension updates the browser URL when htmz swaps content, and
+    This extension rewrites the browser URL when htmz swaps content, and
     restores content on back/forward navigation. The inverse of
     <a href="../no-history/" target="extension-demo-frame">no-history</a>:
-    instead of suppressing history entries, it adds clean pushState URLs.
+    instead of suppressing history entries, it rewrites the URL bar via pushState.
   </p>
 </div>
 
