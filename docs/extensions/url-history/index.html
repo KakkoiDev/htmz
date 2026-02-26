@@ -1,0 +1,50 @@
+<div id="extension-code">
+  <script>
+    function htmz(frame) {
+      // ---------------------------------8<-----------------------------------
+      // URL History
+      // ----------------------------------------------------------------------
+      // This extension updates the browser URL via pushState when htmz swaps
+      // content, and handles back/forward navigation via popstate.
+      const loc = frame.contentWindow.location;
+      if (loc.href === "about:blank") return;
+      // --------------------------------->8-----------------------------------
+      setTimeout(() => {
+        document
+          .querySelector(loc.hash || null)
+          ?.replaceWith(...frame.contentDocument.body.childNodes);
+        // ---------------------------------8<-----------------------------------
+        if (location.pathname !== loc.pathname) {
+          history.pushState(
+            { htmzPath: loc.pathname, htmzHash: loc.hash },
+            "",
+            loc.pathname
+          );
+        }
+        // --------------------------------->8-----------------------------------
+      });
+    }
+    // ---------------------------------8<-----------------------------------
+    addEventListener("popstate", (e) => {
+      if (!e.state?.htmzPath) return;
+      document.querySelector("iframe[name=htmz]").src =
+        e.state.htmzPath + (e.state.htmzHash || "");
+    });
+    // --------------------------------->8-----------------------------------
+  </script>
+  <iframe hidden name="htmz" onload="window.htmz(this)"></iframe>
+</div>
+
+<div id="extension-description">
+  <h2>url-history</h2>
+  <p>
+    This extension updates the browser URL when htmz swaps content, and
+    restores content on back/forward navigation. The inverse of
+    <a href="../no-history/" target="extension-demo-frame">no-history</a>:
+    instead of suppressing history entries, it adds clean pushState URLs.
+  </p>
+</div>
+
+<a href="page-a.html#content" target="htmz">Load Page A</a>.
+<a href="page-b.html#content" target="htmz">Load Page B</a>.
+<div id="content">Click a link above. Watch the URL bar.</div>
