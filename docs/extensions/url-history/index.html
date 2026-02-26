@@ -6,6 +6,8 @@
       // ----------------------------------------------------------------------
       // This extension updates the browser URL via pushState when htmz swaps
       // content, and handles back/forward navigation via popstate.
+      // It removes and re-adds the iframe after each swap (like no-history)
+      // so that only pushState entries appear in the browser history.
       const loc = frame.contentWindow.location;
       if (loc.href === "about:blank") return;
       // --------------------------------->8-----------------------------------
@@ -14,6 +16,10 @@
           .querySelector(loc.hash || null)
           ?.replaceWith(...frame.contentDocument.body.childNodes);
         // ---------------------------------8<-----------------------------------
+        // Remove and re-add iframe to clear its history entry
+        frame.remove();
+        document.body.appendChild(frame);
+
         if (location.pathname !== loc.pathname) {
           history.pushState(
             { htmzPath: loc.pathname, htmzHash: loc.hash },
@@ -27,8 +33,20 @@
     // ---------------------------------8<-----------------------------------
     addEventListener("popstate", (e) => {
       if (!e.state?.htmzPath) return;
-      document.querySelector("iframe[name=htmz]").src =
-        e.state.htmzPath + (e.state.htmzHash || "");
+      const frame = document.querySelector("iframe[name=htmz]");
+      // Use fetch + DOM swap instead of iframe.src to avoid creating
+      // a new history entry that would wipe forward history
+      fetch(e.state.htmzPath + (e.state.htmzHash || ""))
+        .then((r) => r.text())
+        .then((html) => {
+          const doc = new DOMParser().parseFromString(html, "text/html");
+          const hash = e.state.htmzHash;
+          if (hash) {
+            document
+              .querySelector(hash)
+              ?.replaceWith(...doc.body.childNodes);
+          }
+        });
     });
     // --------------------------------->8-----------------------------------
   </script>
