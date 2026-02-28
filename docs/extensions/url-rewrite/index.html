@@ -16,9 +16,11 @@
           .querySelector(loc.hash || null)
           ?.replaceWith(...frame.contentDocument.body.childNodes);
         // ---------------------------------8<-----------------------------------
-        // Remove and re-add iframe to clear its history entry
-        frame.remove();
-        document.body.appendChild(frame);
+        // Reset iframe to clear its navigation entry.
+        // Using src=about:blank instead of remove()/appendChild() to avoid
+        // an infinite reload loop when navigation is triggered via JS
+        // (iframe.src = ...) rather than target="htmz" links.
+        frame.src = "about:blank";
 
         if (location.pathname !== loc.pathname) {
           history.pushState(

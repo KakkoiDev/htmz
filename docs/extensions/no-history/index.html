@@ -14,8 +14,7 @@
           .querySelector(frame.contentWindow.location.hash || null)
           ?.replaceWith(...frame.contentDocument.body.childNodes);
         // ---------------------------------8<-----------------------------------
-        frame.remove();
-        document.body.appendChild(frame);
+        frame.src = "about:blank";
         // --------------------------------->8-----------------------------------
       });
     }
