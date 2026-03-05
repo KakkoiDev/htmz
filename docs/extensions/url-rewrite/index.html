@@ -6,22 +6,35 @@
       // ----------------------------------------------------------------------
       // This extension rewrites the browser URL via pushState when htmz swaps
       // content, and handles back/forward navigation via popstate.
-      // It removes and re-adds the iframe after each swap (like no-history)
-      // so that only pushState entries appear in the browser history.
+      // It resets the iframe after each swap (like no-history) so that only
+      // pushState entries appear in the browser history.
+
+      // Capture the iframe's loaded URL before the swap.
+      // loc.hash is the target selector (e.g. "#content").
+      // loc.pathname is the clean page URL to show in the address bar.
       const loc = frame.contentWindow.location;
+
+      // The iframe starts at about:blank and fires onload once on init.
+      // Ignore that initial load - there's nothing to swap yet.
       if (loc.href === "about:blank") return;
       // --------------------------------->8-----------------------------------
       setTimeout(() => {
+        // Standard htmz swap: find the element matching the hash selector
+        // and replace it with the iframe's response body.
         document
           .querySelector(loc.hash || null)
           ?.replaceWith(...frame.contentDocument.body.childNodes);
         // ---------------------------------8<-----------------------------------
-        // Reset iframe to clear its navigation entry.
-        // Using src=about:blank instead of remove()/appendChild() to avoid
-        // an infinite reload loop when navigation is triggered via JS
-        // (iframe.src = ...) rather than target="htmz" links.
+
+        // Reset iframe to about:blank to clear its navigation entry from
+        // browser history. Using src=about:blank instead of
+        // remove()/appendChild() to avoid an infinite reload loop when
+        // navigation is triggered via JS (iframe.src = ...) rather than
+        // target="htmz" links.
         frame.src = "about:blank";
 
+        // Push the clean page URL to the address bar, but only if it
+        // actually changed (avoids duplicate history entries on re-clicks).
         if (location.pathname !== loc.pathname) {
           history.pushState(
             { htmzPath: loc.pathname, htmzHash: loc.hash },
@@ -29,16 +42,25 @@
             loc.pathname
           );
         }
+
+        // Scroll to top like a real page navigation would.
+        scrollTo(0, 0);
         // --------------------------------->8-----------------------------------
       });
     }
     // ---------------------------------8<-----------------------------------
+
+    // Handle browser back/forward buttons.
     addEventListener("popstate", (e) => {
-      if (!e.state?.htmzPath) return;
-      const frame = document.querySelector("iframe[name=htmz]");
-      // Use fetch + DOM swap instead of iframe.src to avoid creating
-      // a new history entry that would wipe forward history
-      fetch(e.state.htmzPath + (e.state.htmzHash || ""))
+      // If there's no htmz state (e.g. the user went back to the original
+      // page before any pushState happened), do a full page reload to
+      // restore the correct content.
+      if (!e.state?.htmzPath) return location.reload();
+
+      // Fetch the page and swap it in via DOM manipulation instead of
+      // setting iframe.src. Setting iframe.src would create a new history
+      // entry that wipes forward history, breaking the forward button.
+      fetch(e.state.htmzPath)
         .then((r) => r.text())
         .then((html) => {
           const doc = new DOMParser().parseFromString(html, "text/html");
@@ -48,7 +70,11 @@
               .querySelector(hash)
               ?.replaceWith(...doc.body.childNodes);
           }
-        });
+          scrollTo(0, 0);
+        })
+        // If fetch fails (offline, 404, etc.), fall back to a full reload
+        // so the browser can show its own error page.
+        .catch(() => location.reload());
     });
     // --------------------------------->8-----------------------------------
   </script>
