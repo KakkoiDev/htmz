@@ -1,13 +1,21 @@
 <div id="extension-code">
   <script>
+    // Some static servers (e.g. `serve`, Vercel, Netlify) serve directory
+    // index pages without a trailing slash. This breaks relative link
+    // resolution (e.g. "page-a.html" resolves one level up). Fix by
+    // ensuring the URL has a trailing slash for directory paths.
+    if (!/\.\w+$/.test(location.pathname) && !location.pathname.endsWith("/")) {
+      history.replaceState(history.state, "", location.pathname + "/");
+    }
+
     function htmz(frame) {
       // ---------------------------------8<-----------------------------------
       // URL Rewrite
       // ----------------------------------------------------------------------
       // This extension rewrites the browser URL via pushState when htmz swaps
       // content, and handles back/forward navigation via popstate.
-      // It resets the iframe after each swap (like no-history) so that only
-      // pushState entries appear in the browser history.
+      // It replaces the iframe with a fresh clone after each swap so that
+      // only pushState entries appear in the browser history.
 
       // Capture the iframe's loaded URL before the swap.
       // loc.hash is the target selector (e.g. "#content").
@@ -17,29 +25,33 @@
       // The iframe starts at about:blank and fires onload once on init.
       // Ignore that initial load - there's nothing to swap yet.
       if (loc.href === "about:blank") return;
+
+      // Snapshot location values as strings now, because loc is a live
+      // reference that becomes invalid once we reset the iframe below.
+      const path = loc.pathname;
+      const hash = loc.hash;
       // --------------------------------->8-----------------------------------
       setTimeout(() => {
         // Standard htmz swap: find the element matching the hash selector
         // and replace it with the iframe's response body.
         document
-          .querySelector(loc.hash || null)
+          .querySelector(hash || null)
           ?.replaceWith(...frame.contentDocument.body.childNodes);
         // ---------------------------------8<-----------------------------------
 
-        // Reset iframe to about:blank to clear its navigation entry from
-        // browser history. Using src=about:blank instead of
-        // remove()/appendChild() to avoid an infinite reload loop when
-        // navigation is triggered via JS (iframe.src = ...) rather than
-        // target="htmz" links.
-        frame.src = "about:blank";
+        // Replace iframe with a fresh clone to clear all navigation history.
+        // A cloneNode(false) copies attributes (name, hidden, onload) but
+        // creates a brand-new browsing context with no session history.
+        // This prevents back/forward from traversing iframe entries.
+        frame.replaceWith(frame.cloneNode(false));
 
         // Push the clean page URL to the address bar, but only if it
         // actually changed (avoids duplicate history entries on re-clicks).
-        if (location.pathname !== loc.pathname) {
+        if (location.pathname !== path) {
           history.pushState(
-            { htmzPath: loc.pathname, htmzHash: loc.hash },
+            { htmzPath: path, htmzHash: hash },
             "",
-            loc.pathname
+            path
           );
         }
 
@@ -49,6 +61,19 @@
       });
     }
     // ---------------------------------8<-----------------------------------
+
+    // Intercept htmz link clicks and navigate the iframe via
+    // location.replace() instead of normal navigation. Normal <a target>
+    // navigation adds entries to the joint session history, which breaks
+    // back/forward since history.back() traverses iframe entries first.
+    addEventListener("click", (e) => {
+      const link = e.target.closest('a[target="htmz"]');
+      if (!link) return;
+      e.preventDefault();
+      document
+        .querySelector('iframe[name="htmz"]')
+        .contentWindow.location.replace(link.href);
+    });
 
     // Handle browser back/forward buttons.
     addEventListener("popstate", (e) => {
